@@ -13,9 +13,10 @@ The setup assumes a fresh install of NixOS, an intel cpu/igpu, PCI-e based Coral
 
 Lets prepare by grabbing the files needed and enter the new directory.
 
-`git clone https://github.com/torchedesc/NixGate.git`
-
-cd into that directory.
+```
+git clone https://github.com/torchedesc/NixGate.git`
+cd ./NixGate
+```
 
 ### First the NixOS stuff
 

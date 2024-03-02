@@ -13,7 +13,7 @@ The setup assumes a fresh install of NixOS, an intel cpu/igpu, PCI-e based Coral
 
 Lets prepare by grabbing the files needed and enter the new directory.
 
-```
+```bash
 git clone https://github.com/torchedesc/NixGate.git
 cd ./NixGate
 ```
@@ -26,26 +26,26 @@ Even though NixOS has roll backs, we should make a copy of the configuration.nix
 
 Next we will make the packages directory in /etc/nixos/ and copy the required files.
 
-```
-1. sudo mkdir /etc/nixos/packages/
-2. sudo cp ./nixos/coral.nix /etc/nixos/
-3. sudo cp ./nixos/gasket.nix /etc/nixos/packages/
-4. sudo cp ./nixos/libedgetpu.nix /etc/nixos/packages/
+```bash
+sudo mkdir /etc/nixos/packages/
+sudo cp ./nixos/coral.nix /etc/nixos/
+sudo cp ./nixos/gasket.nix /etc/nixos/packages/
+sudo cp ./nixos/libedgetpu.nix /etc/nixos/packages/
 ```
 
 We should edit the new configuration.nix file before copying it over. 
 
-`5. nano ./nixos/configuration.nix`
+`nano ./nixos/configuration.nix`
 
  Change the host name, time zone, and add or remove things you may want aside from what is needed for Frigate. If you want to just copy the Frigate related stuff to your configuration.nix, they are commented in the included configuration.nix file we pulled down.
 
 Once satisfied copy it to /etc/nixos/ .
 
-`6. sudo cp ./nixos/configuration.nix /etc/nixos/`
+`sudo cp ./nixos/configuration.nix /etc/nixos/`
 
 Now we can rebuild and switch to the new OS which preps the Coral TPU, docker, and user permissions.
 
-`7. sudo nixos-rebuild switch`
+`sudo nixos-rebuild switch`
 
 Go brew some tea because this may take a while. :)
 
@@ -56,7 +56,7 @@ Once this is complete, reboot the machine so the new user permissions are activa
 
 Now that OS is prepped and ready to run docker compose. Here we will get the docker and Frigate stuff setup.
 Create the directories for your camera media and docker compose files then copy them over. As defined in this compose.yml example we will be keeping everything in the home directory.
-```
+```bash
 mkdir -p ~/docker/frigate/
 cp ./docker/compose.yml ~/docker/frigate/
 cp ./docker/config.yml ~/docker/frigate/

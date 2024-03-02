@@ -1,0 +1,233 @@
+  # https://docs.frigate.video/configuration/reference
+  # This config uses a PCIe based TPU, records a clip for a person and takes a snapshot for cats and dogs.
+mqtt:
+  enabled: False
+database:
+  path: /db/frigate.db
+ffmpeg:
+  hwaccel_args: preset-vaapi #enables intel HW acceleration
+
+  # Using the Google Coral TPUs. Tested the Mini PCIe Accelerator and the M.2 Accelerator A+E key
+  # https://coral.ai/products/pcie-accelerator     https://coral.ai/products/m2-accelerator-ae
+detectors:
+  coral:
+    type: edgetpu
+    device: pci:0
+
+detect:
+  enabled: True
+  width: 1280
+  height: 720
+  fps: 5
+
+
+objects:
+  # Optional: list of objects to track from labelmap.txt (default: shown below)
+  track:
+    - person
+    - dog
+    - cat
+  # Optional: mask to prevent all object types from being detected in certain areas (default: no mask)
+  # Checks based on the bottom center of the bounding box of the object.
+  # NOTE: This mask is COMBINED with the object type specific mask below
+  mask: 0,0,1000,0,1000,200,0,200
+  # Optional: filters to reduce false positives for specific object types
+  filters:
+    person:
+      # Optional: minimum width*height of the bounding box for the detected object (default: 0)
+      min_area: 5000
+      # Optional: maximum width*height of the bounding box for the detected object (default: 24000000)
+      max_area: 100000
+      # Optional: minimum width/height of the bounding box for the detected object (default: 0)
+      min_ratio: 0.5
+      # Optional: maximum width/height of the bounding box for the detected object (default: 24000000)
+      max_ratio: 2.0
+      # Optional: minimum score for the object to initiate tracking (default: shown below)
+      min_score: 0.5
+      # Optional: minimum decimal percentage for tracked object's computed score to be considered a true positive (default: shown below)
+      threshold: 0.7
+      # Optional: mask to prevent this object type from being detected in certain areas (default: no mask)
+      # Checks based on the bottom center of the bounding box of the object
+      mask: 0,0,1000,0,1000,200,0,200
+
+# Optional: Motion configuration
+# NOTE: Can be overridden at the camera level
+motion:
+  # Optional: The threshold passed to cv2.threshold to determine if a pixel is different enough to be counted as motion. (default: shown below)
+  # Increasing this value will make motion detection less sensitive and decreasing it will make motion detection more sensitive.
+  # The value should be between 1 and 255.
+  threshold: 25
+  # Optional: Minimum size in pixels in the resized motion image that counts as motion (default: 30)
+  # Increasing this value will prevent smaller areas of motion from being detected. Decreasing will
+  # make motion detection more sensitive to smaller moving objects.
+  # As a rule of thumb:
+  #  - 15 - high sensitivity
+  #  - 30 - medium sensitivity
+  #  - 50 - low sensitivity
+  contour_area: 30
+  # Optional: Alpha value passed to cv2.accumulateWeighted when averaging the motion delta across multiple frames (default: shown below)
+  # Higher values mean the current frame impacts the delta a lot, and a single raindrop may register as motion.
+  # Too low and a fast moving person wont be detected as motion.
+  delta_alpha: 0.2
+  # Optional: Alpha value passed to cv2.accumulateWeighted when averaging frames to determine the background (default: shown below)
+  # Higher values mean the current frame impacts the average a lot, and a new object will be averaged into the background faster.
+  # Low values will cause things like moving shadows to be detected as motion for longer.
+  # https://www.geeksforgeeks.org/background-subtraction-in-an-image-using-concept-of-running-average/
+  frame_alpha: 0.2
+  # Optional: Height of the resized motion frame  (default: 50)
+  # This operates as an efficient blur alternative. Higher values will result in more granular motion detection at the expense
+  # of higher CPU usage. Lower values result in less CPU, but small changes may not register as motion.
+  frame_height: 50
+  # Optional: motion mask
+  # NOTE: see docs for more detailed info on creating masks
+  mask: 0,900,1080,900,1080,1920,0,1920
+  # Optional: improve contrast (default: shown below)
+  # Enables dynamic contrast improvement. This should help improve night detections at the cost of making motion detection more sensitive
+  # for daytime.
+  improve_contrast: False
+  # Optional: Delay when updating camera motion through MQTT from ON -> OFF (default: shown below).
+  mqtt_off_delay: 30
+
+# Optional: Record configuration
+# NOTE: Can be overridden at the camera level
+record:
+  # Optional: Enable recording (default: shown below)
+  # WARNING: If recording is disabled in the config, turning it on via
+  #          the UI or MQTT later will have no effect.
+  enabled: True
+  # Optional: Number of minutes to wait between cleanup runs (default: shown below)
+  # This can be used to reduce the frequency of deleting recording segments from disk if you want to minimize i/o
+  expire_interval: 60
+  # Optional: Retention settings for recording
+  retain:
+    # Optional: Number of days to retain recordings regardless of events (default: shown below)
+    # NOTE: This should be set to 0 and retention should be defined in events section below
+    #       if you only want to retain recordings of events.
+    days: 0
+    # Optional: Mode for retention. Available options are: all, motion, and active_objects
+    #   all - save all recording segments regardless of activity
+    #   motion - save all recordings segments with any detected motion
+    #   active_objects - save all recording segments with active/moving objects
+    # NOTE: this mode only applies when the days setting above is greater than 0
+    mode: motion
+  # Optional: Event recording settings
+  events:
+    # Optional: Number of seconds before the event to include (default: shown below)
+    pre_capture: 5
+    # Optional: Number of seconds after the event to include (default: shown below)
+    post_capture: 5
+    # Optional: Objects to save recordings for. (default: all tracked objects)
+    objects:
+      - person
+    # Optional: Restrict recordings to objects that entered any of the listed zones (default: no required zones)
+    required_zones: []
+    # Optional: Retention settings for recordings of events
+    retain:
+      # Required: Default retention days (default: shown below)
+      default: 10
+      # Optional: Mode for retention. (default: shown below)
+      #   all - save all recording segments for events regardless of activity
+      #   motion - save all recordings segments for events with any detected motion
+      #   active_objects - save all recording segments for event with active/moving objects
+      #
+      # NOTE: If the retain mode for the camera is more restrictive than the mode configured
+      #       here, the segments will already be gone by the time this mode is applied.
+      #       For example, if the camera retain mode is "motion", the segments without motion are
+      #       never stored, so setting the mode to "all" here won't bring them back.
+      mode: motion
+      # Optional: Per object retention days
+      objects:
+        person: 30
+
+# Optional: Configuration for the jpg snapshots written to the clips directory for each event
+# NOTE: Can be overridden at the camera level
+snapshots:
+  # Optional: Enable writing jpg snapshot to /media/frigate/clips (default: shown below)
+  enabled: True
+  # Optional: save a clean PNG copy of the snapshot image (default: shown below)
+  retain:
+    # Required: Default retention days (default: shown below)
+    default: 30
+    # Optional: Per object retention days
+    objects:
+      person: 30
+
+        ## Cameras setup.
+        ## Replace USER with your Cameras login user and CAMERA_PASSWORDS with the password for each login.
+        ## Check IPs in the URLs.
+        ## This is how my Riolink RLC-410-5MP need to be configured to have both streams available and accessible in Home Assistant
+go2rtc:
+  streams:
+    username: USER
+    password: CAMERA_PASSWORDS
+    frontdoor:
+      - rtsp://USER:CAMERA_PASSWORDS@192.168.1.X1:554/h264Preview_01_main
+    frontdoor_sub:
+      - rtsp://USER:CAMERA_PASSWORDS@192.168.1.X1:554/h264Preview_01_sub
+    driveway:
+      - rtsp://USER:CAMERA_PASSWORDS@192.168.1.X2:554/h264Preview_01_main
+    driveway_sub:
+      - rtsp://USER:CAMERA_PASSWORDS@192.168.1.X2:554/h264Preview_01_sub
+    westgate:
+      - rtsp://USER:CAMERA_PASSWORDS@192.168.1.X3:554/h264Preview_01_main
+    westgate_sub:
+      - rtsp://USER:CAMERA_PASSWORDS@192.168.1.X3:554/h264Preview_01_sub
+    eastgate:
+      - rtsp://USER:CAMERA_PASSWORDS@192.168.1.X4:554/h264Preview_01_main
+    eastgate_sub:
+      - rtsp://USER:CAMERA_PASSWORDS@192.168.1.X4:554/h264Preview_01_sub
+
+cameras:
+  frontdoor:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/frontdoor
+          roles:
+            - record
+        - path: rtsp://127.0.0.1:8554/frontdoor_sub
+          roles:
+            - detect
+
+  driveway:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/driveway
+          roles:
+            - record
+        - path: rtsp://127.0.0.1:8554/driveway_sub
+          roles:
+            - detect
+
+  westgate:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/westgate
+          roles:
+            - record
+        - path: rtsp://127.0.0.1:8554/westgate_sub
+          roles:
+            - detect
+
+  eastgate:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/eastgate
+          roles:
+            - record
+        - path: rtsp://127.0.0.1:8554/eastgate_sub
+          roles:
+            - detect
+
+  # Birdseye creates a grid of the available cameras to see all at once.
+birdseye:
+  enabled: True
+  mode: continuous
+  restream: False
+  width: 1920
+  height: 1080
+  quality: 4
+
+rtmp:
+  enabled: false
+
+
